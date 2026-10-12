@@ -74,6 +74,46 @@
             font-weight: 600;
             margin-bottom: 6px;
         }
+        #campo-buscar { position: relative; }
+        #buscar-muni {
+            width: 100%;
+            box-sizing: border-box;
+            font: inherit;
+            font-size: 0.95rem;
+            padding: 8px 10px;
+            border: 1px solid var(--linea);
+            border-radius: 6px;
+            color: var(--texto);
+        }
+        #sugerencias {
+            position: absolute;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            margin: 2px 0 0;
+            padding: 4px 0;
+            list-style: none;
+            background: #FFFFFF;
+            border: 1px solid var(--linea);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(30, 43, 51, 0.15);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        #sugerencias li {
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        #sugerencias li .depto {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--texto-suave);
+        }
+        #sugerencias li[aria-selected="true"],
+        #sugerencias li:hover { background: var(--fondo-suave); }
+        #sugerencias li.sin-resultado { cursor: default; color: var(--texto-suave); }
+        #aviso-buscar:empty { display: none; }
         .etiqueta {
             display: block;
             font-size: 0.85rem;
@@ -286,7 +326,8 @@
         #panel button:focus-visible,
         #panel select:focus-visible,
         #panel summary:focus-visible,
-        #panel input:focus-visible {
+        #panel input:focus-visible,
+        #buscar-muni:focus {
             outline: 3px solid var(--foco);
             outline-offset: 2px;
         }
@@ -316,6 +357,14 @@
                     <h1>Riesgo municipal por desastres, 2025</h1>
                     <p class="sub">Nivel de riesgo según las personas afectadas por cada 1.000 habitantes. Proyecto 53 PMGRD, CUN.</p>
                 </header>
+                <div class="campo" id="campo-buscar">
+                    <label for="buscar-muni">Buscar municipio</label>
+                    <input type="search" id="buscar-muni" autocomplete="off" spellcheck="false"
+                        placeholder="Escribe el nombre o el código DIVIPOLA"
+                        role="combobox" aria-expanded="false" aria-controls="sugerencias" aria-autocomplete="list">
+                    <ul id="sugerencias" role="listbox" hidden></ul>
+                    <p id="aviso-buscar" class="ayuda" aria-live="polite"></p>
+                </div>
                 <div class="campo">
                     <span class="etiqueta" id="etq-depto">Departamentos</span>
                     <details id="caja-deptos">
@@ -889,6 +938,112 @@
             map.closePopup();
             actualizarMapa(false);
         });
+
+        // ---- Buscador de municipios por nombre o código ----
+        function normalizar(texto) {
+            return String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase().replace(/\s+/g, ' ').trim();
+        }
+        var indiceBusqueda = todosLosMunicipios.map(function(f) {
+            return {f: f, nombre: normalizar(f.properties.municipio), codigo: String(f.properties.cod_divipola)};
+        });
+        var inputBuscar = document.getElementById('buscar-muni');
+        var listaSug = document.getElementById('sugerencias');
+        var avisoBuscar = document.getElementById('aviso-buscar');
+        var resultados = [];
+        var activo = -1;
+
+        function cerrarSugerencias() {
+            listaSug.hidden = true;
+            listaSug.innerHTML = '';
+            inputBuscar.setAttribute('aria-expanded', 'false');
+            inputBuscar.removeAttribute('aria-activedescendant');
+            activo = -1;
+        }
+        function marcarActivo(i) {
+            var items = listaSug.querySelectorAll('li[role="option"]');
+            items.forEach(function(li, k) { li.setAttribute('aria-selected', String(k === i)); });
+            activo = i;
+            if (items[i]) {
+                inputBuscar.setAttribute('aria-activedescendant', items[i].id);
+                items[i].scrollIntoView({block: 'nearest'});
+            }
+        }
+        function buscar() {
+            var q = normalizar(inputBuscar.value);
+            avisoBuscar.textContent = '';
+            if (q.length < 2) { cerrarSugerencias(); return; }
+            var esCodigo = /^\d+$/.test(q);
+            var empiezan = [], contienen = [];
+            indiceBusqueda.forEach(function(item) {
+                if (esCodigo) {
+                    if (item.codigo.indexOf(q) === 0) empiezan.push(item);
+                } else if (item.nombre.indexOf(q) === 0) {
+                    empiezan.push(item);
+                } else if (item.nombre.indexOf(' ' + q) >= 0 || item.nombre.indexOf(q) >= 0) {
+                    contienen.push(item);
+                }
+            });
+            var porNombre = function(a, b) { return a.nombre.localeCompare(b.nombre, 'es'); };
+            resultados = empiezan.sort(porNombre).concat(contienen.sort(porNombre)).slice(0, 10);
+            listaSug.innerHTML = '';
+            if (!resultados.length) {
+                var vacio = document.createElement('li');
+                vacio.className = 'sin-resultado';
+                vacio.textContent = 'Ningún municipio coincide con lo que escribiste.';
+                listaSug.appendChild(vacio);
+            }
+            resultados.forEach(function(item, i) {
+                var p = item.f.properties;
+                var li = document.createElement('li');
+                li.id = 'sug-' + i;
+                li.setAttribute('role', 'option');
+                li.setAttribute('aria-selected', 'false');
+                li.textContent = nombreLegible(p.municipio);
+                var d = document.createElement('span');
+                d.className = 'depto';
+                d.textContent = nombreLegible(p.departamento) + ' (' + p.cod_divipola + ')';
+                li.appendChild(d);
+                li.addEventListener('mousedown', function(e) { e.preventDefault(); elegir(i); });
+                listaSug.appendChild(li);
+            });
+            listaSug.hidden = false;
+            inputBuscar.setAttribute('aria-expanded', 'true');
+            activo = -1;
+        }
+        function elegir(i) {
+            var item = resultados[i];
+            if (!item) return;
+            var p = item.f.properties;
+            inputBuscar.value = nombreLegible(p.municipio) + ', ' + nombreLegible(p.departamento);
+            cerrarSugerencias();
+            var visible = false;
+            layer_Nivelderiesgo2025_1.eachLayer(function(capa) {
+                if (capa.feature && capa.feature.properties.cod_divipola === p.cod_divipola) visible = true;
+            });
+            if (!visible) {
+                // El municipio estaba oculto por los filtros: se quitan para poder mostrarlo
+                listaDeptos.querySelectorAll('input').forEach(function(c) { c.checked = false; });
+                document.getElementById('solo-nivel').checked = false;
+                estado.soloNiveles = false;
+                estado.deptos = [];
+                document.getElementById('resumen-deptos').textContent = 'Todo el país';
+                actualizarMapa(false);
+                dibujarResumen();
+                dibujarLista();
+                avisoBuscar.textContent = 'Se quitaron los filtros para mostrar este municipio.';
+            }
+            irAMunicipio(p.cod_divipola);
+        }
+        inputBuscar.addEventListener('input', buscar);
+        inputBuscar.addEventListener('keydown', function(e) {
+            var n = resultados.length;
+            if (e.key === 'ArrowDown' && n) { e.preventDefault(); if (listaSug.hidden) buscar(); marcarActivo((activo + 1) % n); }
+            else if (e.key === 'ArrowUp' && n) { e.preventDefault(); marcarActivo(activo <= 0 ? n - 1 : activo - 1); }
+            else if (e.key === 'Enter') { e.preventDefault(); if (n) elegir(activo >= 0 ? activo : 0); }
+            else if (e.key === 'Escape') { cerrarSugerencias(); }
+        });
+        inputBuscar.addEventListener('blur', function() { setTimeout(cerrarSugerencias, 150); });
 
         dibujarResumen();
         dibujarLista();
