@@ -331,7 +331,87 @@
             outline: 3px solid var(--foco);
             outline-offset: 2px;
         }
-        .leaflet-popup-content th { text-align: left; padding-right: 8px; }
+        .leaflet-popup-content th { text-align: left; padding-right: 8px; vertical-align: top; }
+        .leaflet-popup-content th.seccion {
+            padding: 8px 0 2px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--texto-suave);
+            border-bottom: 1px solid var(--linea);
+        }
+        .leaflet-popup-content td.aviso-celda {
+            background: #FFF4E5;
+            border-left: 3px solid #E08A00;
+            padding: 4px 6px;
+            font-size: 0.85em;
+        }
+        #vista {
+            border: 0;
+            margin: 0;
+            padding: 0;
+        }
+        #vista legend {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            padding: 0;
+        }
+        .segmentos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 1px solid var(--linea);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .segmentos label {
+            position: relative;
+            display: block;
+            margin: 0;
+            cursor: pointer;
+        }
+        .segmentos span {
+            display: block;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 0.88rem;
+            background: #FFFFFF;
+        }
+        .segmentos label:hover span { background: var(--fondo-suave); }
+        .segmentos label + label { border-left: 1px solid var(--linea); }
+        .segmentos input {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+        .segmentos input:checked + span {
+            background: var(--texto);
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+        .segmentos input:focus-visible + span {
+            outline: 3px solid var(--foco);
+            outline-offset: -3px;
+        }
+        #aviso-2026 {
+            margin: 0;
+            padding: 10px 12px;
+            border-left: 4px solid #E08A00;
+            background: #FFF4E5;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            line-height: 1.45;
+        }
+        #aviso-2026 p { margin: 0 0 6px; }
+        #aviso-2026 p:last-child { margin: 0; }
+        #nota-metodo summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--texto);
+            margin-bottom: 4px;
+        }
+        #nota-metodo:focus-within summary { outline: none; }
         @media (max-width: 760px) {
             #app { flex-direction: column; }
             #map { height: 55vh; flex: 0 0 55vh; }
@@ -347,16 +427,28 @@
         }
         </style>
 
-        <title>Riesgo municipal 2025 | Proyecto 53 PMGRD</title>
+        <title>Riesgo municipal 2025 y predicción 2026 | Proyecto 53 PMGRD</title>
     </head>
     <body>
         <div id="app">
             <div id="map"></div>
             <aside id="panel" aria-label="Resumen por departamento">
                 <header>
-                    <h1>Riesgo municipal por desastres, 2025</h1>
-                    <p class="sub">Nivel de riesgo según las personas afectadas por cada 1.000 habitantes. Proyecto 53 PMGRD, CUN.</p>
+                    <h1 id="titulo-panel">Riesgo municipal por desastres, 2025</h1>
+                    <p class="sub" id="subtitulo-panel">Nivel de riesgo según las personas afectadas por cada 1.000 habitantes. Proyecto 53 PMGRD, CUN.</p>
                 </header>
+                <fieldset id="vista">
+                    <legend>¿Qué quieres ver?</legend>
+                    <div class="segmentos">
+                        <label><input type="radio" name="vista" value="2025" checked><span>Nivel observado 2025</span></label>
+                        <label><input type="radio" name="vista" value="2026"><span>Predicción 2026</span></label>
+                    </div>
+                </fieldset>
+                <div id="aviso-2026" role="note" hidden>
+                    <p><strong>Es una predicción del modelo, no un dato observado.</strong> Indica qué tan probable es que cada municipio quede en nivel alto en 2026.</p>
+                    <p>El número de municipios en alto probablemente está <strong>sobreestimado</strong>: úsalo para priorizar según la probabilidad (la lista va de mayor a menor), no como un conteo.</p>
+                    <p>Más de la cuarta parte de la predicción depende de El Niño / La Niña de 2025, que es igual para todo el país. Revisa las advertencias que aparecen en la ventana de algunos municipios.</p>
+                </div>
                 <div class="campo" id="campo-buscar">
                     <label for="buscar-muni">Buscar municipio</label>
                     <input type="search" id="buscar-muni" autocomplete="off" spellcheck="false"
@@ -392,9 +484,16 @@
                     <ol id="lista"></ol>
                 </section>
                 <footer>
-                    <p>Alto: más de 20,08 afectados por 1.000 habitantes. Medio: más de 0 y hasta 20,08. Bajo: sin afectados en 2025.</p>
+                    <p>Alto: más de 20,08 afectados por 1.000 habitantes. Medio: más de 0 y hasta 20,08. Bajo: sin afectados. En la predicción 2026 se usan los mismos cortes.</p>
                     <p>Cada municipio tiene una ficha en PDF con su serie 2000-2025: ábrela desde la lista o desde la ventana del mapa.</p>
-                    <p>Fuentes: UNGRD (emergencias 2000-2025) y DANE (población 2025).</p>
+                    <details id="nota-metodo">
+                        <summary>Nota metodológica de la predicción 2026</summary>
+                        <p>Modelo XGBoost entrenado con los datos municipales de 2000 a 2024 (27.990 municipio-año) y aplicado a los datos de 2025. Usa 33 variables: recurrencia de años anteriores, El Niño / La Niña (ONI), pobreza (IPM 2018), pendiente del terreno, lluvia (CHIRPS), frecuencia y tipo de eventos, tamaño y población, capacidad institucional y municipio PDET.</p>
+                        <p>Desempeño en años que el modelo no vio (datos de 2022 a 2024): detecta el 54,6 % de los casos que terminaron en alto, frente al 40,8 % de repetir el nivel del año anterior; de cada tres alertas de alto, aproximadamente una se confirma (precisión 34,1 %). F1 macro 0,524 frente a 0,515 de repetir el año anterior; AUC ROC 0,748. La probabilidad ordena mejor de lo que clasifica: por eso la lista se ordena por probabilidad de alto.</p>
+                        <p>"Factores que más suben la probabilidad de alto": los tres grupos de variables con mayor aporte hacia alto en cada municipio (SHAP). En municipios con probabilidad baja ese aporte es pequeño.</p>
+                        <p>Detalle en la bitácora del proyecto, pasos MO-01 a MO-10.</p>
+                    </details>
+                    <p>Fuentes: UNGRD (emergencias 2000-2025), DANE (población e IPM), CHIRPS (lluvia), NOAA (ONI), DNP (capacidad institucional y PDET) y Copernicus (pendiente).</p>
                 </footer>
             </aside>
         </div>
@@ -414,6 +513,7 @@
 <script src="js/nouislider.min.js"></script>
 <script src="js/wNumb.js"></script>
         <script src="data/Nivelderiesgo2025_1.js"></script>
+        <script src="data/prediccion_2026.js"></script>
         <script>
         var highlightLayer;
         function highlightFeature(e) {
@@ -533,6 +633,17 @@
         // ---- Formato de números y ventana emergente (es-CO) ----
         var fmtEntero = new Intl.NumberFormat('es-CO', {maximumFractionDigits: 0});
         var fmtTasa = new Intl.NumberFormat('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var fmtPct = new Intl.NumberFormat('es-CO', {style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1});
+        var VISTA = '2025'; // vista inicial: '2025' (observado) o '2026' (predicción)
+        var TOTAL_UNIDADES = Object.keys(PRED_2026).length;
+        function pred2026(p) { return PRED_2026[String(p.cod_divipola)] || null; }
+        function nivelDe(p) {
+            if (VISTA === '2026') {
+                var d = pred2026(p);
+                return d ? d.n : null;
+            }
+            return p.nivel_riesgo_2025;
+        }
         function escaparHTML(texto) {
             return String(texto)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -562,11 +673,34 @@
         function rutaFicha(codigo) {
             return 'fichas/ficha_' + encodeURIComponent(String(codigo)) + '.pdf';
         }
+        function filasPrediccion(p) {
+            var d = pred2026(p);
+            if (!d) return [];
+            var filas = ['<tr><th colspan="2" class="seccion">Predicción 2026 (modelo)</th></tr>',
+                '<tr><th scope="row">Nivel predicho 2026</th><td>' + escaparHTML(d.n) + '</td></tr>',
+                '<tr><th scope="row">Probabilidad de alto</th><td>' + fmtPct.format(d.p) + '</td></tr>',
+                '<tr><th scope="row">Prioridad nacional</th><td>' + fmtEntero.format(d.r) + ' de ' +
+                    fmtEntero.format(TOTAL_UNIDADES) + '</td></tr>',
+                '<tr><th scope="row">Frente a 2025</th><td>' + escaparHTML(d.c) + '</td></tr>',
+                '<tr><th scope="row">Factores que más suben la probabilidad de alto</th><td>' +
+                    escaparHTML(d.f) + '</td></tr>'];
+            if (d.a) {
+                filas.push('<tr><th scope="row">Advertencia</th><td class="aviso-celda">' + escaparHTML(d.a) + '</td></tr>');
+            }
+            return filas;
+        }
         function construirPopup(feature) {
-            var filas = CAMPOS_POPUP.map(function(campo) {
-                return '<tr><th scope="row">' + campo[1] + '</th><td>' +
-                    formatearValor(feature.properties[campo[0]], campo[2]) + '</td></tr>';
+            var filas = [];
+            CAMPOS_POPUP.forEach(function(campo, i) {
+                if (i === 4) {
+                    // Antes de los datos 2025: en la vista 2026 la predicción va primero
+                    if (VISTA === '2026') filas = filas.concat(filasPrediccion(feature.properties));
+                    filas.push('<tr><th colspan="2" class="seccion">Situación observada</th></tr>');
+                }
+                filas.push('<tr><th scope="row">' + campo[1] + '</th><td>' +
+                    formatearValor(feature.properties[campo[0]], campo[2]) + '</td></tr>');
             });
+            if (VISTA !== '2026') filas = filas.concat(filasPrediccion(feature.properties));
             var codigo = feature.properties['cod_divipola'];
             if (codigo) {
                 filas.push('<tr><th scope="row">Ficha municipal</th><td><a href="' + rutaFicha(codigo) +
@@ -594,7 +728,7 @@
         }
 
         function style_Nivelderiesgo2025_1_0(feature) {
-            switch(String(feature.properties['nivel_riesgo_2025'])) {
+            switch(String(nivelDe(feature.properties))) {
                 case 'bajo':
                     return {
                 pane: 'pane_Nivelderiesgo2025_1',
@@ -657,7 +791,7 @@
         bounds_group.addLayer(layer_Nivelderiesgo2025_1);
         map.addLayer(layer_Nivelderiesgo2025_1);
         var overlaysTree = [
-            {label: 'Nivel de riesgo 2025<br /><table><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_bajo0.png" /></td><td>bajo</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_medio1.png" /></td><td>medio</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_alto2.png" /></td><td>alto</td></tr></table>', layer: layer_Nivelderiesgo2025_1},
+            {label: 'Nivel de riesgo<br /><table><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_bajo0.png" /></td><td>bajo</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_medio1.png" /></td><td>medio</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_alto2.png" /></td><td>alto</td></tr></table>', layer: layer_Nivelderiesgo2025_1},
             {label: "OpenStreetMap", layer: layer_OpenStreetMap_0, radioGroup: 'bm' },]
         var lay = L.control.layers.tree(null, overlaysTree,{
             //namedToggle: true,
@@ -724,11 +858,14 @@
         // ---- Panel: resumen por departamento y listas por nivel (selección múltiple) ----
         var NIVELES = [
             {id: 'alto', nombre: 'Alto', color: 'var(--alto)',
-             nota: 'Alto: más de 20,08 afectados por 1.000 habitantes.'},
+             nota: 'Alto: más de 20,08 afectados por 1.000 habitantes.',
+             nota2026: 'Alto: el modelo espera más de 20,08 afectados por 1.000 habitantes (número probablemente sobreestimado).'},
             {id: 'medio', nombre: 'Medio', color: 'var(--medio)',
-             nota: 'Medio: más de 0 y hasta 20,08 afectados por 1.000 habitantes.'},
+             nota: 'Medio: más de 0 y hasta 20,08 afectados por 1.000 habitantes.',
+             nota2026: 'Medio: el modelo espera más de 0 y hasta 20,08 afectados por 1.000 habitantes.'},
             {id: 'bajo', nombre: 'Bajo', color: 'var(--bajo)',
-             nota: 'Bajo: sin afectados en 2025; se ordenan por eventos registrados entre 2000 y 2025.'}
+             nota: 'Bajo: sin afectados en 2025; se ordenan por eventos registrados entre 2000 y 2025.',
+             nota2026: 'Bajo: el modelo no espera afectados.'}
         ];
         var PALABRAS_MENORES = ['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e', 'en'];
         var todosLosMunicipios = json_Nivelderiesgo2025_1.features;
@@ -757,7 +894,7 @@
         }
         function actualizarMapa(acercar) {
             var visibles = municipiosDeLaZona().filter(function(f) {
-                return !estado.soloNiveles || estado.niveles.indexOf(f.properties.nivel_riesgo_2025) >= 0;
+                return !estado.soloNiveles || estado.niveles.indexOf(nivelDe(f.properties)) >= 0;
             });
             layer_Nivelderiesgo2025_1.clearLayers();
             layer_Nivelderiesgo2025_1.addData(visibles);
@@ -769,7 +906,8 @@
             var lista = municipiosDeLaZona();
             var conteo = {alto: 0, medio: 0, bajo: 0};
             lista.forEach(function(f) {
-                if (conteo.hasOwnProperty(f.properties.nivel_riesgo_2025)) conteo[f.properties.nivel_riesgo_2025]++;
+                var nv = nivelDe(f.properties);
+                if (conteo.hasOwnProperty(nv)) conteo[nv]++;
             });
             var total = lista.length;
             var maximo = Math.max(conteo.alto, conteo.medio, conteo.bajo, 1);
@@ -817,10 +955,11 @@
         function dibujarLista() {
             var activos = NIVELES.filter(function(x) { return estado.niveles.indexOf(x.id) >= 0; });
             var lista = municipiosDeLaZona().filter(function(f) {
-                return estado.niveles.indexOf(f.properties.nivel_riesgo_2025) >= 0;
+                return estado.niveles.indexOf(nivelDe(f.properties)) >= 0;
             });
             lista.sort(function(a, b) {
                 var pa = a.properties, pb = b.properties;
+                if (VISTA === '2026') return pred2026(pa).r - pred2026(pb).r;
                 var diferencia = (pb.afectados_1000_2025 || 0) - (pa.afectados_1000_2025 || 0);
                 if (diferencia === 0) diferencia = (pb.eventos_total || 0) - (pa.eventos_total || 0);
                 return diferencia !== 0 ? diferencia : String(pa.municipio).localeCompare(String(pb.municipio), 'es');
@@ -830,7 +969,8 @@
                 (activos.length === 1 ? 'Nivel ' : 'Niveles ') + unirConY(nombresNiveles) +
                 ' en ' + nombreZona() + ' (' + fmtEntero.format(lista.length) + ')';
             document.getElementById('nota-nivel').textContent =
-                activos.map(function(x) { return x.nota; }).join(' ') + ' Ordenados de mayor a menor tasa.';
+                activos.map(function(x) { return VISTA === '2026' ? x.nota2026 : x.nota; }).join(' ') +
+                (VISTA === '2026' ? ' Ordenados de mayor a menor probabilidad de alto.' : ' Ordenados de mayor a menor tasa.');
 
             var mostrarDepto = estado.deptos.length !== 1;
             var ol = document.getElementById('lista');
@@ -846,7 +986,7 @@
             }
             lista.forEach(function(f, i) {
                 var p = f.properties;
-                var nivel = NIVELES.filter(function(x) { return x.id === p.nivel_riesgo_2025; })[0];
+                var nivel = NIVELES.filter(function(x) { return x.id === nivelDe(p); })[0];
                 var li = document.createElement('li');
                 var boton = document.createElement('button');
                 boton.type = 'button';
@@ -868,9 +1008,14 @@
                     d.textContent = nombreLegible(p.departamento);
                     muni.appendChild(d);
                 }
-                boton.querySelector('.tasa').textContent = p.nivel_riesgo_2025 === 'bajo'
-                    ? fmtEntero.format(p.eventos_total || 0) + ' eventos'
-                    : fmtTasa.format(p.afectados_1000_2025 || 0);
+                if (VISTA === '2026') {
+                    boton.querySelector('.tasa').textContent = fmtPct.format(pred2026(p).p);
+                    boton.querySelector('.tasa').title = 'Probabilidad de alto';
+                } else {
+                    boton.querySelector('.tasa').textContent = p.nivel_riesgo_2025 === 'bajo'
+                        ? fmtEntero.format(p.eventos_total || 0) + ' eventos'
+                        : fmtTasa.format(p.afectados_1000_2025 || 0);
+                }
                 boton.addEventListener('click', function() { irAMunicipio(p.cod_divipola); });
                 li.appendChild(boton);
                 var enlace = document.createElement('a');
@@ -1045,8 +1190,32 @@
         });
         inputBuscar.addEventListener('blur', function() { setTimeout(cerrarSugerencias, 150); });
 
-        dibujarResumen();
-        dibujarLista();
+        // ---- Cambio de vista: observado 2025 / predicción 2026 ----
+        function aplicarVista() {
+            var es2026 = VISTA === '2026';
+            document.getElementById('titulo-panel').textContent = es2026
+                ? 'Predicción de riesgo municipal, 2026' : 'Riesgo municipal por desastres, 2025';
+            document.getElementById('subtitulo-panel').textContent = es2026
+                ? 'Nivel que el modelo espera para 2026 y probabilidad de nivel alto. Proyecto 53 PMGRD, CUN.'
+                : 'Nivel de riesgo según las personas afectadas por cada 1.000 habitantes. Proyecto 53 PMGRD, CUN.';
+            document.getElementById('titulo-resumen').textContent = es2026
+                ? 'Municipios por nivel predicho para 2026' : 'Municipios por nivel de riesgo';
+            document.getElementById('aviso-2026').hidden = !es2026;
+            if (es2026) document.getElementById('nota-metodo').open = true;
+            map.closePopup();
+            actualizarMapa(false);
+            dibujarResumen();
+            dibujarLista();
+        }
+        document.querySelectorAll('input[name="vista"]').forEach(function(r) {
+            r.addEventListener('change', function(e) {
+                if (!e.target.checked) return;
+                VISTA = e.target.value;
+                aplicarVista();
+            });
+        });
+        document.querySelectorAll('input[name="vista"]').forEach(function(r) { r.checked = (r.value === VISTA); });
+        aplicarVista();
         setTimeout(function() { map.invalidateSize(); setBounds(); }, 100);
         </script>        
     </body>
