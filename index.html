@@ -219,7 +219,24 @@
             padding: 0;
             border-top: 1px solid var(--linea);
         }
-        #lista li { border-bottom: 1px solid var(--linea); }
+        #lista li {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--linea);
+        }
+        #lista li button { flex: 1 1 auto; min-width: 0; }
+        #lista a.pdf {
+            flex: 0 0 auto;
+            margin-left: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            color: var(--foco);
+            border: 1px solid var(--linea);
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        #lista a.pdf:hover { border-color: var(--foco); }
+        #lista a.pdf:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
         #lista button {
             display: grid;
             grid-template-columns: 34px 1fr auto;
@@ -327,6 +344,7 @@
                 </section>
                 <footer>
                     <p>Alto: más de 20,08 afectados por 1.000 habitantes. Medio: más de 0 y hasta 20,08. Bajo: sin afectados en 2025.</p>
+                    <p>Cada municipio tiene una ficha en PDF con su serie 2000-2025: ábrela desde la lista o desde la ventana del mapa.</p>
                     <p>Fuentes: UNGRD (emergencias 2000-2025) y DANE (población 2025).</p>
                 </footer>
             </aside>
@@ -492,11 +510,19 @@
             if (tipo === 'tasa' && !isNaN(numero)) return fmtTasa.format(numero);
             return escaparHTML(valor);
         }
+        function rutaFicha(codigo) {
+            return 'fichas/ficha_' + encodeURIComponent(String(codigo)) + '.pdf';
+        }
         function construirPopup(feature) {
             var filas = CAMPOS_POPUP.map(function(campo) {
                 return '<tr><th scope="row">' + campo[1] + '</th><td>' +
                     formatearValor(feature.properties[campo[0]], campo[2]) + '</td></tr>';
             });
+            var codigo = feature.properties['cod_divipola'];
+            if (codigo) {
+                filas.push('<tr><th scope="row">Ficha municipal</th><td><a href="' + rutaFicha(codigo) +
+                    '" target="_blank" rel="noopener">Ver ficha (PDF)</a></td></tr>');
+            }
             return '<table>' + filas.join('') + '</table>';
         }
         function pop_Nivelderiesgo2025_1(feature, layer) {
@@ -798,6 +824,14 @@
                     : fmtTasa.format(p.afectados_1000_2025 || 0);
                 boton.addEventListener('click', function() { irAMunicipio(p.cod_divipola); });
                 li.appendChild(boton);
+                var enlace = document.createElement('a');
+                enlace.className = 'pdf';
+                enlace.href = rutaFicha(p.cod_divipola);
+                enlace.target = '_blank';
+                enlace.rel = 'noopener';
+                enlace.textContent = 'Ficha';
+                enlace.title = 'Abrir la ficha de ' + nombreLegible(p.municipio) + ' en PDF';
+                li.appendChild(enlace);
                 ol.appendChild(li);
             });
         }
