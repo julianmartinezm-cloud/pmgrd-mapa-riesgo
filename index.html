@@ -425,6 +425,10 @@
         @media (prefers-reduced-motion: reduce) {
             .barra .relleno { transition: none; }
         }
+        /* S-05: confianza de la predicción */
+        td.conf-alta { border-left: 4px solid #2e7d32; padding-left: 6px; }
+        td.conf-media { border-left: 4px solid #f9a825; padding-left: 6px; }
+        td.conf-baja { border-left: 4px solid #c62828; padding-left: 6px; }
         </style>
 
         <title>Riesgo municipal 2025 y predicción 2026 | Proyecto 53 PMGRD</title>
@@ -488,12 +492,13 @@
                     <p>Cada municipio tiene una ficha en PDF con su serie 2000-2025: ábrela desde la lista o desde la ventana del mapa.</p>
                     <details id="nota-metodo">
                         <summary>Nota metodológica de la predicción 2026</summary>
-                        <p>Modelo XGBoost entrenado con los datos municipales de 2000 a 2024 (27.990 municipio-año) y aplicado a los datos de 2025. Usa 33 variables: recurrencia de años anteriores, El Niño / La Niña (ONI), pobreza (IPM 2018), pendiente del terreno, lluvia (CHIRPS), frecuencia y tipo de eventos, tamaño y población, capacidad institucional y municipio PDET.</p>
-                        <p>Desempeño en años que el modelo no vio (datos de 2022 a 2024): detecta el 54,6 % de los casos que terminaron en alto, frente al 40,8 % de repetir el nivel del año anterior; de cada tres alertas de alto, aproximadamente una se confirma (precisión 34,1 %). F1 macro 0,524 frente a 0,515 de repetir el año anterior; AUC ROC 0,748. La probabilidad ordena mejor de lo que clasifica: por eso la lista se ordena por probabilidad de alto.</p>
-                        <p>"Factores que más suben la probabilidad de alto": los tres grupos de variables con mayor aporte hacia alto en cada municipio (SHAP). En municipios con probabilidad baja ese aporte es pequeño.</p>
-                        <p>Detalle en la bitácora del proyecto, pasos MO-01 a MO-10.</p>
+                        <p>La predicción la hace un modelo de aprendizaje automático (XGBoost) que aprendió de lo ocurrido en los municipios entre 2000 y 2024 (27.990 registros municipio-año) y se aplicó a los datos de 2025. Tiene en cuenta 33 datos de cada municipio, agrupados en: afectaciones de años anteriores, El Niño / La Niña (el calentamiento o enfriamiento del océano Pacífico que cambia las lluvias), pobreza (IPM 2018), pendiente del terreno, lluvia estimada por satélite, frecuencia y tipo de eventos, tamaño y población, capacidad institucional y condición PDET.</p>
+                        <p>¿Qué tan bien acierta? Se probó con 2022 a 2024, años que el modelo no había visto: anticipó 55 de cada 100 municipios que terminaron en alto, frente a 41 de cada 100 si solo se repite el nivel del año anterior. De cada tres municipios que marcó en alto, aproximadamente uno lo fue. Por eso sirve más para decidir qué municipios revisar primero que para saber cuántos quedarán en alto, y la lista se ordena por probabilidad de alto.</p>
+                        <p>Confianza de la predicción: indica qué tan clara es la predicción de cada municipio. Es alta cuando la probabilidad del nivel predicho supera en 30 puntos o más a la del siguiente nivel más probable, media cuando la supera entre 10 y 30 puntos, y baja cuando la diferencia es menor de 10 puntos. Si el municipio tiene una advertencia de datos, la confianza baja un nivel.</p>
+                        <p>"Factores que más suben la probabilidad de alto": los tres grupos de datos que más empujaron hacia alto el resultado de cada municipio (método SHAP). En municipios con probabilidad baja ese empuje es pequeño.</p>
+                        <p>Para especialistas: sensibilidad en alto 54,6 % y precisión 34,1 %; F1 macro 0,524 frente a 0,515 de repetir el año anterior; AUC ROC 0,748. Detalle en la bitácora del proyecto, pasos MO-01 a MO-10.</p>
                     </details>
-                    <p>Fuentes: UNGRD (emergencias 2000-2025), DANE (población e IPM), CHIRPS (lluvia), NOAA (ONI), DNP (capacidad institucional y PDET) y Copernicus (pendiente).</p>
+                    <p>Fuentes: UNGRD (emergencias 2000-2025), DANE (población e IPM), CHIRPS (lluvia estimada por satélite), NOAA (índice de El Niño), DNP (capacidad institucional), ART (municipios PDET) y Copernicus (pendiente del terreno).</p>
                 </footer>
             </aside>
         </div>
@@ -514,6 +519,7 @@
 <script src="js/wNumb.js"></script>
         <script src="data/Nivelderiesgo2025_1.js"></script>
         <script src="data/prediccion_2026.js"></script>
+        <script src="data/departamentos.js"></script>
         <script>
         var highlightLayer;
         function highlightFeature(e) {
@@ -678,6 +684,9 @@
             if (!d) return [];
             var filas = ['<tr><th colspan="2" class="seccion">Predicción 2026 (modelo)</th></tr>',
                 '<tr><th scope="row">Nivel predicho 2026</th><td>' + escaparHTML(d.n) + '</td></tr>',
+                // S-05 (versión 3): confianza de la predicción en lenguaje sencillo
+                (d.kt ? '<tr><th scope="row">Confianza de la predicción</th><td class="conf-' +
+                    escaparHTML(d.k) + '">' + escaparHTML(d.kt) + '</td></tr>' : ''),
                 '<tr><th scope="row">Probabilidad de alto</th><td>' + fmtPct.format(d.p) + '</td></tr>',
                 '<tr><th scope="row">Prioridad nacional</th><td>' + fmtEntero.format(d.r) + ' de ' +
                     fmtEntero.format(TOTAL_UNIDADES) + '</td></tr>',
@@ -790,9 +799,31 @@
         });
         bounds_group.addLayer(layer_Nivelderiesgo2025_1);
         map.addLayer(layer_Nivelderiesgo2025_1);
+        // Versión 3: límites departamentales, línea oscura sobre los municipios, legible en todo zoom
+        function pesoDepto(z) { return z <= 5 ? 1.2 : (z <= 7 ? 2 : 3); }
+        map.createPane('pane_Departamentos');
+        map.getPane('pane_Departamentos').style.zIndex = 450;
+        map.getPane('pane_Departamentos').style.pointerEvents = 'none';
+        var layer_Departamentos = null;
+        if (typeof json_Departamentos !== 'undefined') {
+            layer_Departamentos = L.geoJson(json_Departamentos, {
+                pane: 'pane_Departamentos',
+                interactive: false,
+                style: function() {
+                    return {color: '#1a1a1a', weight: pesoDepto(map.getZoom()), opacity: 0.9, fill: false};
+                }
+            });
+            map.addLayer(layer_Departamentos);
+            map.on('zoomend', function() {
+                layer_Departamentos.setStyle({weight: pesoDepto(map.getZoom())});
+            });
+        }
         var overlaysTree = [
             {label: 'Nivel de riesgo<br /><table><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_bajo0.png" /></td><td>bajo</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_medio1.png" /></td><td>medio</td></tr><tr><td style="text-align: center;"><img src="legend/Nivelderiesgo2025_1_alto2.png" /></td><td>alto</td></tr></table>', layer: layer_Nivelderiesgo2025_1},
             {label: "OpenStreetMap", layer: layer_OpenStreetMap_0, radioGroup: 'bm' },]
+        if (layer_Departamentos) {
+            overlaysTree.splice(1, 0, {label: 'Límites departamentales', layer: layer_Departamentos});
+        }
         var lay = L.control.layers.tree(null, overlaysTree,{
             //namedToggle: true,
             //selectorBack: false,
